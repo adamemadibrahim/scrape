@@ -24,7 +24,7 @@
 #    See the documentation for each action used below for the recommended IAM policies for this IAM user,
 #    and best practices on handling the access key credentials.
 
-name: Deploy to Amazon ECS
+name: Deploy and Run scrap.py on EC2
 
 on:
   push:
@@ -43,6 +43,7 @@ jobs:
         run: |
           echo "${{ secrets.PEM_KEY }}" > github-deploy-key.pem
           chmod 600 github-deploy-key.pem
+          mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.EC2_PUBLIC_IP }} >> ~/.ssh/known_hosts
 
       - name: Copy files to EC2
@@ -50,6 +51,24 @@ jobs:
           scp -i github-deploy-key.pem scrap.py ubuntu@${{ secrets.EC2_PUBLIC_IP }}:/home/ubuntu/scrap.py
           scp -i github-deploy-key.pem service_providers.json ubuntu@${{ secrets.EC2_PUBLIC_IP }}:/home/ubuntu/service_providers.json
 
+      - name: Install dependencies on EC2
+        run: |
+          ssh -i github-deploy-key.pem ubuntu@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+            sudo apt update
+            sudo apt install -y python3-pip chromium-chromedriver
+            pip3 install selenium webdriver-manager
+          EOF
+
       - name: Run script on EC2
         run: |
           ssh -i github-deploy-key.pem ubuntu@${{ secrets.EC2_PUBLIC_IP }} 'python3 /home/ubuntu/scrap.py'
+
+      - name: Retrieve output file from EC2
+        run: |
+          scp -i github-deploy-key.pem ubuntu@${{ secrets.EC2_PUBLIC_IP }}:/home/ubuntu/service_providers_details.csv .
+
+      - name: Upload output file as an artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: output
+          path: service_providers_details.csv
