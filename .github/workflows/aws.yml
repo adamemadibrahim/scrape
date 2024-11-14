@@ -27,9 +27,13 @@ jobs:
 
       - name: Install dependencies on EC2
         run: |
-          ssh -i github-deploy-key.pem ubuntu@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+          ssh -i github-deploy-key.pem -t ubuntu@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
             sudo apt update
-            sudo apt install -y python3-pip chromium-chromedriver
+            sudo DEBIAN_FRONTEND=noninteractive apt install -y python3-pip chromium-browser
+            wget -N https://chromedriver.storage.googleapis.com/$(curl -s https://chromedriver.storage.googleapis.com/LATEST_RELEASE)/chromedriver_linux64.zip
+            unzip chromedriver_linux64.zip
+            sudo mv chromedriver /usr/local/bin/
+            rm chromedriver_linux64.zip
             pip3 install selenium webdriver-manager
           EOF
 
